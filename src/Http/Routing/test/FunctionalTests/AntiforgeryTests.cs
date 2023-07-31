@@ -452,6 +452,57 @@ public class AntiforgeryTests
         }
     }
 
+    [Fact]
+    public async Task MapPost_WithForm_AndFormMapperOptions_ValidToken_Works()
+    {
+        using var host = new HostBuilder()
+            .ConfigureWebHost(webHostBuilder =>
+            {
+                webHostBuilder
+                    .Configure(app =>
+                    {
+                        app.UseRouting();
+                        app.UseAntiforgery();
+                        app.UseEndpoints(b =>
+                            b.MapPost("/todo", ([FromForm] Todo todo) => todo)
+                                .WithFormMappingOptions(10, 10, 2));
+                    })
+                    .UseTestServer();
+            })
+            .ConfigureServices(services =>
+            {
+                services.AddRouting();
+                services.AddAntiforgery();
+            })
+            .Build();
+
+        using var server = host.GetTestServer();
+        await host.StartAsync();
+        var client = server.CreateClient();
+
+        var antiforgery = host.Services.GetRequiredService<IAntiforgery>();
+        var antiforgeryOptions = host.Services.GetRequiredService<IOptions<AntiforgeryOptions>>();
+        var tokens = antiforgery.GetAndStoreTokens(new DefaultHttpContext());
+        var request = new HttpRequestMessage(HttpMethod.Post, "todo");
+        request.Headers.Add("Cookie", antiforgeryOptions.Value.Cookie.Name + "=" + tokens.CookieToken);
+        var nameValueCollection = new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string,string>("__RequestVerificationToken", tokens.RequestToken),
+            new KeyValuePair<string,string>("name", "Test task"),
+            new KeyValuePair<string,string>("isComplete", "false"),
+            new KeyValuePair<string,string>("dueDate", DateTime.Today.AddDays(1).ToString(CultureInfo.InvariantCulture)),
+        };
+        request.Content = new FormUrlEncodedContent(nameValueCollection);
+
+        var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadAsStringAsync();
+        var result = JsonSerializer.Deserialize<Todo>(body, SerializerOptions);
+        Assert.Equal("Test task", result.Name);
+        Assert.False(result.IsCompleted);
+        Assert.Equal(DateTime.Today.AddDays(1), result.DueDate);
+    }
+
     class Todo
     {
         public string Name { get; set; }

@@ -133,7 +133,66 @@ public static class RoutingEndpointConventionBuilderExtensions
     /// <returns>The <see cref="IEndpointConventionBuilder"/>.</returns>
     public static TBuilder DisableAntiforgery<TBuilder>(this TBuilder builder) where TBuilder : IEndpointConventionBuilder
     {
+        ArgumentNullException.ThrowIfNull(builder);
+
         builder.WithMetadata(AntiforgeryMetadata.ValidationNotRequired);
         return builder;
     }
+
+    /// <summary>
+    /// Configures <see cref="FormMappingOptionsMetadata"/> for all endpoints produced
+    /// on the target <see cref="IEndpointConventionBuilder"/>.
+    /// </summary>
+    /// <param name="builder">The <see cref="IEndpointConventionBuilder"/>.</param>
+    /// <param name="maxCollectionSize"></param>
+    /// <param name="maxRecursionDepth"></param>
+    /// <param name="maxKeySize"></param>
+    /// <typeparam name="TBuilder"></typeparam>
+    /// <returns></returns>
+    public static TBuilder WithFormMappingOptions<TBuilder>(this TBuilder builder, int maxCollectionSize = 1024, int maxRecursionDepth = 64, int maxKeySize = 1024 * 2) where TBuilder : IEndpointConventionBuilder
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.WithMetadata(new FormMappingOptionsMetadata(maxCollectionSize, maxRecursionDepth, maxKeySize));
+        return builder;
+    }
+
+    /// <summary>
+    /// Configures <see cref="RequestFormLimitsMetadata"/> for all endpoints produced
+    /// on the target <see cref="IEndpointConventionBuilder"/>.
+    /// </summary>
+    /// <param name="builder"></param>
+    /// <param name="bufferBody"></param>
+    /// <param name="memoryBufferThreshold"></param>
+    /// <param name="bufferBodyLengthLimit"></param>
+    /// <param name="valueCountLimit"></param>
+    /// <param name="keyLengthLimit"></param>
+    /// <param name="valueLengthLimit"></param>
+    /// <param name="multipartBoundaryLengthLimit"></param>
+    /// <param name="multipartHeadersCountLimit"></param>
+    /// <param name="multipartHeadersLengthLimit"></param>
+    /// <param name="multipartBodyLengthLimit"></param>
+    /// <typeparam name="TBuilder"></typeparam>
+    /// <returns></returns>
+    public static TBuilder WithRequestFormLimits<TBuilder>(
+        this TBuilder builder,
+        bool bufferBody = BufferBodyDefault,
+        int memoryBufferThreshold = MemoryBufferThresholdDefault,
+        long bufferBodyLengthLimit = 1024 * 1024 * 128,
+        int valueCountLimit = 1024,
+        int keyLengthLimit = 1024 * 2,
+        int valueLengthLimit = 1024 * 1024 * 4,
+        int multipartBoundaryLengthLimit = 128,
+        int multipartHeadersCountLimit = 16,
+        int multipartHeadersLengthLimit = 1024 * 16,
+        long multipartBodyLengthLimit = 1024 * 1024 * 128) where TBuilder : IEndpointConventionBuilder
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.WithMetadata(new RequestFormLimitsMetadata(bufferBody, memoryBufferThreshold, bufferBodyLengthLimit, valueCountLimit, keyLengthLimit, valueLengthLimit, multipartBoundaryLengthLimit, multipartHeadersCountLimit, multipartHeadersLengthLimit, multipartBodyLengthLimit));
+        return builder;
+    }
+
+    private const bool BufferBodyDefault = false;
+    private const int MemoryBufferThresholdDefault = 1024 * 64;
 }
