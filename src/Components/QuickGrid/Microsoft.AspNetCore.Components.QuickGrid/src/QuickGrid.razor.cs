@@ -28,7 +28,7 @@ public partial class QuickGrid<TGridItem> : IAsyncDisposable
     [Parameter] public IQueryable<TGridItem>? Items { get; set; }
 
     /// <summary>
-    /// A callback that supplies data for the rid.
+    /// A callback that supplies data for the grid.
     ///
     /// You should supply either <see cref="Items"/> or <see cref="ItemsProvider"/>, but not both.
     /// </summary>
@@ -62,6 +62,14 @@ public partial class QuickGrid<TGridItem> : IAsyncDisposable
     /// is small or if you are using pagination.
     /// </summary>
     [Parameter] public bool Virtualize { get; set; }
+
+    /// <summary>
+    /// This is applicable only when using <see cref="Virtualize"/>. It defines how many additional items will be rendered
+    /// before and after the visible region to reduce rendering frequency during scrolling. While higher values can improve
+    /// scroll smoothness by rendering more items off-screen, they can also increase initial load times. Finding a balance
+    /// based on your data set size and user experience requirements is recommended. The default value is 3.
+    /// </summary>
+    [Parameter] public int OverscanCount { get; set; } = 3;
 
     /// <summary>
     /// This is applicable only when using <see cref="Virtualize"/>. It defines an expected height in pixels for

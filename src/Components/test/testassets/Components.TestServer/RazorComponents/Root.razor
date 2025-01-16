@@ -9,9 +9,9 @@
     <HeadOutlet />
 </head>
 <body>
-    <ServerApp @rendermode="@RenderMode.Server" />
+    <ServerApp @rendermode="@RenderMode.InteractiveServer" />
 
-    <script src="_framework/blazor.web.js" autostart="false"></script>
+    <script src="@Assets["_framework/blazor.web.js"]" autostart="false"></script>
     <script>
         const suppressEnhancedNavigation = sessionStorage.getItem('suppress-enhanced-navigation') === 'true';
         sessionStorage.removeItem('suppress-enhanced-navigation');
