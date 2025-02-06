@@ -97,6 +97,7 @@ public static class IdentityBuilderExtensions
 
         builder.AddSignInManager();
         builder.AddDefaultTokenProviders();
+        builder.Services.TryAddTransient(typeof(IEmailSender<>), typeof(DefaultMessageEmailSender<>));
         builder.Services.TryAddTransient<IEmailSender, NoOpEmailSender>();
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IConfigureOptions<JsonOptions>, IdentityEndpointsJsonOptionsSetup>());
         return builder;
@@ -105,12 +106,14 @@ public static class IdentityBuilderExtensions
     // Set TimeProvider from DI on all options instances, if not already set by tests.
     private sealed class PostConfigureSecurityStampValidatorOptions : IPostConfigureOptions<SecurityStampValidatorOptions>
     {
-        public PostConfigureSecurityStampValidatorOptions(TimeProvider timeProvider)
+        public PostConfigureSecurityStampValidatorOptions(TimeProvider? timeProvider = null)
         {
+            // We could assign this to "timeProvider ?? TimeProvider.System", but
+            // SecurityStampValidator already has system clock fallback logic.
             TimeProvider = timeProvider;
         }
 
-        private TimeProvider TimeProvider { get; }
+        private TimeProvider? TimeProvider { get; }
 
         public void PostConfigure(string? name, SecurityStampValidatorOptions options)
         {

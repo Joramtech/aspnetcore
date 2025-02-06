@@ -88,6 +88,7 @@
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.SignalR.Common" />
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.SignalR.Core" />
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.SignalR" />
+    <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.StaticAssets" />
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.Components.Authorization" />
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.Components" />
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.Components.Endpoints" />
@@ -104,6 +105,7 @@
     <AspNetCoreShippingAssembly Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" />
     <AspNetCoreShippingAssembly Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
     <AspNetCoreShippingAssembly Include="Microsoft.Extensions.Features" />
+    <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.App.Internal.Assets" />
     <AspNetCoreShippingAssembly Include="Microsoft.Extensions.Caching.SqlServer" />
     <AspNetCoreShippingAssembly Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.JsonPatch" />
@@ -132,6 +134,7 @@
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" />
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.HeaderPropagation" />
     <AspNetCoreShippingAssembly Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
+    <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.OutputCaching.StackExchangeRedis" />
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.MiddlewareAnalysis" />
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.SpaProxy" />
     <AspNetCoreShippingAssembly Include="Microsoft.AspNetCore.SpaServices.Extensions" />
