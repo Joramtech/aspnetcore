@@ -5,28 +5,54 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.AspNetCore.Components.Endpoints.FormMapping;
 
-internal sealed class NullableConverter<T> : FormDataConverter<T?> where T : struct
+internal sealed class NullableConverter<T>(FormDataConverter<T> nonNullableConverter) : FormDataConverter<T?>, ISingleValueConverter<T?> where T : struct
 {
-    private readonly FormDataConverter<T> _nonNullableConverter;
+    private readonly FormDataConverter<T> _nonNullableConverter = nonNullableConverter;
 
-    public NullableConverter(FormDataConverter<T> nonNullableConverter)
-    {
-        _nonNullableConverter = nonNullableConverter;
-    }
+    public bool CanConvertSingleValue() => _nonNullableConverter is ISingleValueConverter<T> singleValueConverter &&
+        singleValueConverter.CanConvertSingleValue();
 
-    [RequiresDynamicCode(FormMappingHelpers.RequiresDynamicCodeMessage)]
-    [RequiresUnreferencedCode(FormMappingHelpers.RequiresUnreferencedCodeMessage)]
-    internal override bool TryRead(ref FormDataReader context, Type type, FormDataMapperOptions options, out T? result, out bool found)
+    public bool TryConvertValue(ref FormDataReader reader, string value, out T? result)
     {
-        if (!(_nonNullableConverter.TryRead(ref context, type, options, out var innerResult, out found) && found))
+        if (string.IsNullOrEmpty(value))
+        {
+            // Form post sends empty string for a form field that does not have a value,
+            // in case of nullable value types, that should be treated as null and
+            // should not be parsed for its underlying type
+            result = null;
+            return true;
+        }
+
+        var converter = (ISingleValueConverter<T>)_nonNullableConverter;
+
+        if (converter.TryConvertValue(ref reader, value, out var converted))
+        {
+            result = converted;
+            return true;
+        }
+        else
         {
             result = null;
             return false;
         }
+    }
+
+    [RequiresDynamicCode(FormMappingHelpers.RequiresDynamicCodeMessage)]
+    [RequiresUnreferencedCode(FormMappingHelpers.RequiresUnreferencedCodeMessage)]
+    internal override bool TryRead(ref FormDataReader reader, Type type, FormDataMapperOptions options, out T? result, out bool found)
+    {
+        // Donot call non-nullable converter's TryRead method, it will fail to parse empty
+        // string. Call the TryConvertValue method above (similar to ParsableConverter) so
+        // that it can handle the empty string correctly
+        found = reader.TryGetValue(out var value);
+        if (!found)
+        {
+            result = default;
+            return true;
+        }
         else
         {
-            result = innerResult;
-            return true;
+            return TryConvertValue(ref reader, value!, out result!);
         }
     }
 }

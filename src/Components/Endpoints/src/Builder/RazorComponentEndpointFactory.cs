@@ -15,7 +15,7 @@ namespace Microsoft.AspNetCore.Components.Endpoints;
 
 internal class RazorComponentEndpointFactory
 {
-    private static readonly HttpMethodMetadata HttpMethodsMetadata = new(new[] { HttpMethods.Get, HttpMethods.Post });
+    private static readonly HttpMethodMetadata HttpMethodsMetadata = new([HttpMethods.Get, HttpMethods.Post]);
 
 #pragma warning disable CA1822 // It's a singleton
     internal void AddEndpoints(
@@ -24,7 +24,8 @@ internal class RazorComponentEndpointFactory
         [DynamicallyAccessedMembers(Component)] Type rootComponent,
         PageComponentInfo pageDefinition,
         IReadOnlyList<Action<EndpointBuilder>> conventions,
-        IReadOnlyList<Action<EndpointBuilder>> finallyConventions)
+        IReadOnlyList<Action<EndpointBuilder>> finallyConventions,
+        ConfiguredRenderModesMetadata configuredRenderModesMetadata)
     {
         // We do not provide a way to establish the order or the name for the page routes.
         // Order is not supported in our client router.
@@ -48,6 +49,13 @@ internal class RazorComponentEndpointFactory
         builder.Metadata.Add(HttpMethodsMetadata);
         builder.Metadata.Add(new ComponentTypeMetadata(pageDefinition.Type));
         builder.Metadata.Add(new RootComponentMetadata(rootComponent));
+        builder.Metadata.Add(configuredRenderModesMetadata);
+
+        builder.RequestDelegate = static httpContext =>
+        {
+            var invoker = httpContext.RequestServices.GetRequiredService<IRazorComponentEndpointInvoker>();
+            return invoker.Render(httpContext);
+        };
 
         foreach (var convention in conventions)
         {
@@ -64,12 +72,6 @@ internal class RazorComponentEndpointFactory
 
         // The display name is for debug purposes by endpoint routing.
         builder.DisplayName = $"{builder.RoutePattern.RawText} ({pageDefinition.DisplayName})";
-
-        builder.RequestDelegate = httpContext =>
-        {
-            var invoker = httpContext.RequestServices.GetRequiredService<IRazorComponentEndpointInvoker>();
-            return invoker.Render(httpContext);
-        };
 
         endpoints.Add(builder.Build());
     }

@@ -6,8 +6,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.Routing.Template;
+using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.AspNetCore.Routing.Patterns;
+using Microsoft.AspNetCore.Routing.Template;
 using Microsoft.AspNetCore.Routing.Tree;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -19,29 +20,31 @@ namespace Microsoft.AspNetCore.Components;
 /// <summary>
 /// Resolves components for an application.
 /// </summary>
-internal static class RouteTableFactory
+internal class RouteTableFactory
 {
-    private static readonly ConcurrentDictionary<RouteKey, RouteTable> Cache = new();
+    public static readonly RouteTableFactory Instance = new();
     public static readonly IComparer<InboundRouteEntry> RouteOrder = Comparer<InboundRouteEntry>.Create((x, y) =>
     {
         var result = RouteComparison(x, y);
         return result != 0 ? result : string.Compare(x.RoutePattern.RawText, y.RoutePattern.RawText, StringComparison.OrdinalIgnoreCase);
     });
 
-    public static RouteTable Create(RouteKey routeKey, IServiceProvider serviceProvider)
+    private readonly ConcurrentDictionary<RouteKey, RouteTable> _cache = new();
+
+    public RouteTable Create(RouteKey routeKey, IServiceProvider serviceProvider)
     {
-        if (Cache.TryGetValue(routeKey, out var resolvedComponents))
+        if (_cache.TryGetValue(routeKey, out var resolvedComponents))
         {
             return resolvedComponents;
         }
 
         var componentTypes = GetRouteableComponents(routeKey);
         var routeTable = Create(componentTypes, serviceProvider);
-        Cache.TryAdd(routeKey, routeTable);
+        _cache.TryAdd(routeKey, routeTable);
         return routeTable;
     }
 
-    public static void ClearCaches() => Cache.Clear();
+    public void ClearCaches() => _cache.Clear();
 
     [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "Application code does not get trimmed, and the framework does not define routable components.")]
     private static List<Type> GetRouteableComponents(RouteKey routeKey)
@@ -70,7 +73,9 @@ internal static class RouteTableFactory
         {
             foreach (var type in assembly.ExportedTypes)
             {
-                if (typeof(IComponent).IsAssignableFrom(type) && type.IsDefined(typeof(RouteAttribute)))
+                if (typeof(IComponent).IsAssignableFrom(type)
+                    && type.IsDefined(typeof(RouteAttribute))
+                    && !type.IsDefined(typeof(ExcludeFromInteractiveRoutingAttribute)))
                 {
                     routeableComponents.Add(type);
                 }
@@ -110,9 +115,14 @@ internal static class RouteTableFactory
     [UnconditionalSuppressMessage("Trimming", "IL2067", Justification = "Application code does not get trimmed, and the framework does not define routable components.")]
     internal static RouteTable Create(Dictionary<Type, string[]> templatesByHandler, IServiceProvider serviceProvider)
     {
+        var routeOptions = Options.Create(new RouteOptions());
+        if (!OperatingSystem.IsBrowser() || RegexConstraintSupport.IsEnabled)
+        {
+            routeOptions.Value.SetParameterPolicy("regex", typeof(RegexInlineRouteConstraint));
+        }
         var builder = new TreeRouteBuilder(
             serviceProvider.GetRequiredService<ILoggerFactory>(),
-            new DefaultInlineConstraintResolver(Options.Create(new RouteOptions()), serviceProvider));
+            new DefaultInlineConstraintResolver(routeOptions, serviceProvider));
 
         foreach (var (type, templates) in templatesByHandler)
         {
@@ -187,66 +197,28 @@ internal static class RouteTableFactory
             UnusedRouteParameterNames = GetUnusedParameterNames(result.AllRouteParameterNames, routeParameterNames!),
         };
     }
-
     private static void DetectAmbiguousRoutes(TreeRouteBuilder builder)
     {
+        var seen = new HashSet<InboundRouteEntry>(new InboundRouteEntryAmbiguityEqualityComparer());
+        seen.EnsureCapacity(builder.InboundEntries.Count);
+
         for (var i = 0; i < builder.InboundEntries.Count; i++)
         {
-            var left = builder.InboundEntries[i];
-            for (var j = i + 1; j < builder.InboundEntries.Count; j++)
-            {
-                var right = builder.InboundEntries[j];
-                var leftText = left.RoutePattern.RawText!.Trim('/');
-                var rightText = right.RoutePattern.RawText!.Trim('/');
-                if (left.Precedence != right.Precedence)
-                {
-                    continue;
-                }
+            var current = builder.InboundEntries[i];
 
-                var ambiguous = CompareSegments(left, right);
-                if (ambiguous)
-                {
-                    throw new InvalidOperationException($@"The following routes are ambiguous:
-'{leftText}' in '{left.Handler.FullName}'
-'{rightText}' in '{right.Handler.FullName}'
-");
-                }
+            if (!seen.Add(current))
+            {
+                seen.TryGetValue(current, out var existing);
+                var existingText = existing!.RoutePattern.RawText!.Trim('/');
+                var currentText = current.RoutePattern.RawText!.Trim('/');
+                throw new InvalidOperationException($"""
+                    The following routes are ambiguous:
+                    '{existingText}' in '{existing.Handler.FullName}'
+                    '{currentText}' in '{current.Handler.FullName}'
+
+                    """);
             }
         }
-    }
-
-    private static bool CompareSegments(InboundRouteEntry left, InboundRouteEntry right)
-    {
-        var ambiguous = true;
-        for (var k = 0; k < left.RoutePattern.PathSegments.Count; k++)
-        {
-            var leftSegment = left.RoutePattern.PathSegments[k];
-            var rightSegment = right.RoutePattern.PathSegments[k];
-            if (leftSegment.Parts.Count != rightSegment.Parts.Count)
-            {
-                ambiguous = false;
-                break;
-            }
-
-            for (var l = 0; l < leftSegment.Parts.Count; l++)
-            {
-                var leftPart = leftSegment.Parts[l];
-                var rightPart = rightSegment.Parts[l];
-                if (leftPart is RoutePatternLiteralPart leftLiteral &&
-                    rightPart is RoutePatternLiteralPart rightLiteral &&
-                    !string.Equals(leftLiteral.Content, rightLiteral.Content, StringComparison.OrdinalIgnoreCase))
-                {
-                    ambiguous = false;
-                    break;
-                }
-            }
-            if (!ambiguous)
-            {
-                break;
-            }
-        }
-
-        return ambiguous;
     }
 
     private static HashSet<string> GetParameterNames(RoutePattern routeTemplate)
@@ -323,5 +295,71 @@ internal static class RouteTableFactory
             0 => 0,
             _ => throw new InvalidOperationException("Invalid comparison result."),
         };
+    }
+
+    private sealed class InboundRouteEntryAmbiguityEqualityComparer : IEqualityComparer<InboundRouteEntry>
+    {
+        public bool Equals(InboundRouteEntry? x, InboundRouteEntry? y)
+        {
+            if (x is null)
+            {
+                return y is null;
+            }
+
+            if (y is null)
+            {
+                return false;
+            }
+
+            if (x.Precedence != y.Precedence)
+            {
+                return false;
+            }
+
+            for (var k = 0; k < x.RoutePattern.PathSegments.Count; k++)
+            {
+                var leftSegment = x.RoutePattern.PathSegments[k];
+                var rightSegment = y.RoutePattern.PathSegments[k];
+                if (leftSegment.Parts.Count != rightSegment.Parts.Count)
+                {
+                    return false;
+                }
+
+                for (var l = 0; l < leftSegment.Parts.Count; l++)
+                {
+                    var leftPart = leftSegment.Parts[l];
+                    var rightPart = rightSegment.Parts[l];
+                    if (leftPart is RoutePatternLiteralPart leftLiteral &&
+                        rightPart is RoutePatternLiteralPart rightLiteral &&
+                        !string.Equals(leftLiteral.Content, rightLiteral.Content, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        public int GetHashCode(InboundRouteEntry obj)
+        {
+            var hashCode = new HashCode();
+            hashCode.Add(obj.Precedence);
+
+            for (var i = 0; i < obj.RoutePattern.PathSegments.Count; i++)
+            {
+                var segment = obj.RoutePattern.PathSegments[i];
+                for (var j = 0; j < segment.Parts.Count; j++)
+                {
+                    var part = segment.Parts[j];
+                    if (part is RoutePatternLiteralPart literal)
+                    {
+                        hashCode.Add(literal.Content, StringComparer.OrdinalIgnoreCase);
+                    }
+                }
+            }
+
+            return hashCode.ToHashCode();
+        }
     }
 }

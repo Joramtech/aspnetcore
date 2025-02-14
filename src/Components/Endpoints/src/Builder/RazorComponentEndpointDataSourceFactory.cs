@@ -10,24 +10,16 @@ using static Microsoft.AspNetCore.Internal.LinkerFlags;
 
 namespace Microsoft.AspNetCore.Components.Infrastructure;
 
-internal class RazorComponentEndpointDataSourceFactory
+internal class RazorComponentEndpointDataSourceFactory(
+    RazorComponentEndpointFactory factory,
+    IEnumerable<RenderModeEndpointProvider> providers,
+    HotReloadService? hotReloadService = null)
 {
-    private readonly RazorComponentEndpointFactory _factory;
-    private readonly IEnumerable<RenderModeEndpointProvider> _providers;
-
-    public RazorComponentEndpointDataSourceFactory(
-        RazorComponentEndpointFactory factory,
-        IEnumerable<RenderModeEndpointProvider> providers)
-    {
-        _factory = factory;
-        _providers = providers;
-    }
-
     public RazorComponentEndpointDataSource<TRootComponent> CreateDataSource<[DynamicallyAccessedMembers(Component)] TRootComponent>(IEndpointRouteBuilder endpoints)
     {
         var builder = ComponentApplicationBuilder.GetBuilder<TRootComponent>() ??
             DefaultRazorComponentApplication<TRootComponent>.Instance.GetBuilder();
 
-        return new RazorComponentEndpointDataSource<TRootComponent>(builder, _providers, endpoints.CreateApplicationBuilder(), _factory);
+        return new RazorComponentEndpointDataSource<TRootComponent>(builder, providers, endpoints, factory, hotReloadService);
     }
 }

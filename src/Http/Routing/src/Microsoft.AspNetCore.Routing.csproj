@@ -37,6 +37,7 @@
     <Compile Include="$(SharedSourceRoot)Debugger\DebuggerHelpers.cs" LinkBase="Shared" />
     <Compile Include="$(SharedSourceRoot)AntiforgeryMetadata.cs" LinkBase="Shared" />
     <Compile Include="$(SharedSourceRoot)HttpExtensions.cs" LinkBase="Shared" />
+    <Compile Include="$(SharedSourceRoot)ContentTypeConstants.cs" LinkBase="Shared" />
   </ItemGroup>
 
   <ItemGroup>
@@ -46,6 +47,7 @@
     <Reference Include="Microsoft.AspNetCore.Http.Features" />
     <Reference Include="Microsoft.AspNetCore.Http.Abstractions" />
     <Reference Include="Microsoft.AspNetCore.Routing.Abstractions" />
+    <Reference Include="Microsoft.Extensions.Diagnostics" />
     <Reference Include="Microsoft.Extensions.Features" />
     <Reference Include="Microsoft.Extensions.ObjectPool" />
     <Reference Include="Microsoft.Extensions.Options" />
